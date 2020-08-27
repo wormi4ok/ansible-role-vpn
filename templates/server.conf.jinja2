@@ -1,0 +1,13 @@
+[Interface]
+Address = {{ vpn_network | ipaddr(1) }}
+ListenPort = {{ vpn_port }}
+PrivateKey = {{ lookup('file', vpn_keys_path + '/private/' + vpn_server) }}
+
+{% for u in vpn_clients %}
+{% set index = loop.index %}
+
+[Peer]
+PublicKey = {{ lookup('file', vpn_keys_path + '/public/' + u) }}
+PresharedKey = {{ lookup('file', vpn_keys_path + '/preshared/' + u) }}
+AllowedIPs = {{ vpn_network | ipmath(index | int + 1) }}/32
+{% endfor %}

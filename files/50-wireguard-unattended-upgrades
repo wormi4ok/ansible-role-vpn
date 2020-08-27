@@ -1,0 +1,4 @@
+// Automatically upgrade Wireguard
+Unattended-Upgrade::Allowed-Origins {
+    "LP-PPA-wireguard-wireguard:${distro_codename}";
+};

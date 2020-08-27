@@ -1,0 +1,38 @@
+---
+- name: Add Wiregurad PPA repository
+  apt_repository:
+    repo: ppa:wireguard/wireguard
+  when: ansible_distribution_version is version('18.04', '<')
+
+- name: Install Wireguard packages
+  apt:
+    pkg:
+    - iptables-persistent
+    - wireguard
+    - wireguard-tools
+    state: present
+    update_cache: true
+
+- name: Install Wiregurad kernel module packages
+  apt:
+    pkg:
+    - wireguard-dkms
+    - "linux-headers-{{ ansible_kernel }}"
+    state: present
+  when: ansible_kernel is version('5.6','<')
+  ignore_errors: yes
+
+- name: Configure unattended-upgrades
+  copy:
+    src: 50-wireguard-unattended-upgrades
+    dest: /etc/apt/apt.conf.d/50-wireguard-unattended-upgrades
+    owner: root
+    group: root
+    mode: 0644
+  when: ansible_distribution_version is version('20.04', '<')
+
+- name: WireGuard reload-module-on-update
+  file:
+    path: /etc/wireguard/.reload-module-on-update
+    state: touch
+    mode: 0644

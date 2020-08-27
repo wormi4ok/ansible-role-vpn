@@ -1,0 +1,10 @@
+---
+- name: Install Wigeruard
+  import_tasks: install.yml
+- name: Configure server and clients
+  import_tasks: config.yml
+- name: Network configuration
+  import_tasks: network.yml
+  tags: ["network"]
+
+

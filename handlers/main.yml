@@ -1,0 +1,16 @@
+---
+- name: Restart Wiregurad
+  systemd:
+    name: wg-quick@wg0.service
+    state: restarted
+
+- name: Save iptables
+  shell: iptables-save > /etc/iptables/rules.v4
+  changed_when: False
+  listen: Save iptables
+
+- name: Restart netfilter-persistent service
+  service:
+    name: netfilter-persistent
+    state: restarted
+  listen: Save iptables

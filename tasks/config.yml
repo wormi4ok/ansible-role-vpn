@@ -1,0 +1,156 @@
+---
+- name: Clean configuration
+  block:
+  - name: Stop Wireguard
+    service:
+      name: wg-quick@wg0.service
+      state: stopped
+  - name: Delete server Wireguard config
+    file:
+      dest: /etc/wireguard/wg0.conf
+      state: absent
+  when: force | bool
+
+- name: Create required directories
+  file:
+    dest: "{{ item }}"
+    state: directory
+    recurse: true
+    mode: 0660
+  loop:
+  - "{{ vpn_keys_path }}/preshared"
+  - "{{ vpn_keys_path }}/private"
+  - "{{ vpn_keys_path }}/public"
+  delegate_to: localhost
+  become: false
+
+- name: Delete the lock files
+  file:
+    dest: "/etc/wireguard/private_{{ item }}.lock"
+    state: absent
+  when: force | bool
+  loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
+
+- name: Generate private keys
+  command: wg genkey
+  register: wg_genkey
+  args:
+    creates: "/etc/wireguard/private_{{ item }}.lock"
+  loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
+
+- block:
+  - name: Save private keys
+    copy:
+      dest: "{{ vpn_keys_path }}/private/{{ item['item'] }}"
+      content: "{{ item['stdout'] }}"
+      mode: 0600
+    no_log: true
+    when: item.changed
+    loop: "{{ wg_genkey['results'] }}"
+    delegate_to: localhost
+    become: false
+
+  - name: Touch the lock file
+    file:
+      dest: "/etc/wireguard/private_{{ item }}.lock"
+      state: touch
+      mode: 0644
+    loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
+  when: wg_genkey.changed
+
+- name: Delete the preshared lock files
+  file:
+    dest: "/etc/wireguard/preshared_{{ item }}.lock"
+    state: absent
+  when: force | bool
+  loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
+
+- name: Generate preshared keys
+  command: wg genpsk
+  register: wg_genpsk
+  args:
+    creates: "/etc/wireguard/preshared_{{ item }}.lock"
+  loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
+
+- block:
+  - name: Save preshared keys
+    copy:
+      dest: "{{ vpn_keys_path }}/preshared/{{ item['item'] }}"
+      content: "{{ item['stdout'] }}"
+      mode: 0600
+    no_log: true
+    when: item.changed
+    loop: "{{ wg_genpsk['results'] }}"
+    delegate_to: localhost
+    become: false
+
+  - name: Touch the preshared lock file
+    file:
+      dest: "/etc/wireguard/preshared_{{ item }}.lock"
+      state: touch
+      mode: 0644
+    loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
+  when: wg_genpsk.changed
+
+- name: Generate public keys
+  shell: |
+    set -o pipefail
+    echo "{{ lookup('file', vpn_keys_path + '/private/' + item) }}" |
+    wg pubkey
+  register: wg_pubkey
+  changed_when: false
+  args:
+    executable: bash
+  loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
+
+- name: Save public keys
+  copy:
+    dest: "{{ vpn_keys_path }}/public/{{ item['item'] }}"
+    content: "{{ item['stdout'] }}"
+    mode: 0600
+  no_log: true
+  loop: "{{ wg_pubkey['results'] }}"
+  delegate_to: localhost
+  become: false
+
+- name: Create client configs
+  template:
+    src: client.conf.jinja2
+    dest: "{{ vpn_keys_path }}/{{ item }}.conf"
+    mode: 0600
+  loop: "{{ vpn_clients | flatten(levels=1) }}"
+  loop_control:
+    index_var: index
+  delegate_to: localhost
+  become: false
+
+- name: Generate QR codes
+  shell: qrencode -t ansiutf8 < "{{ vpn_keys_path }}/{{ item }}.conf"
+  changed_when: false
+  loop: "{{ vpn_clients | flatten(levels=1) }}"
+  become: false
+  delegate_to: localhost
+  register: qrcode
+
+- name: Show QR codes
+  debug:
+    msg: "{{ item.stdout_lines }}"
+  loop: "{{ qrcode.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  tags:
+  - never
+  - qr_codes
+
+- name: Create server Wireguard config
+  template:
+    src: server.conf.jinja2
+    dest: /etc/wireguard/wg0.conf
+    mode: 0600
+  notify: Restart Wiregurad
+
+- name: Enable Wireguard
+  service:
+    name: wg-quick@wg0.service
+    enabled: yes
+    state: started

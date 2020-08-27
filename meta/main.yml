@@ -1,0 +1,20 @@
+---
+dependencies: []
+
+galaxy_info:
+  role_name: vpn
+  author: wormi4ok
+  description: Ansible role for configuring Wireguard VPN.
+  min_ansible_version: 2.4
+  license: MIT
+  platforms:
+  - name: Ubuntu
+    versions:
+    - xenial
+    - bionic
+    - focal
+  galaxy_tags:
+    - networking
+    - vpn
+    - security
+    - wireguard

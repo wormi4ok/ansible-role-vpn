@@ -1,0 +1,10 @@
+[Interface]
+PrivateKey = {{ lookup('file', vpn_keys_path + '/private/' + item) }}
+Address = {{ vpn_network | ipmath(index | int + 2) }}/32
+DNS = {{ vpn_dns_servers  | join(',') }}
+
+[Peer]
+PublicKey = {{ lookup('file', vpn_keys_path + '/public/' + vpn_server) }}
+PresharedKey = {{ lookup('file', vpn_keys_path + '/preshared/' + item) }}
+AllowedIPs = 0.0.0.0/0,::/0
+Endpoint = {{ vpn_server }}:{{ vpn_port }}

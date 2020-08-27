@@ -1,0 +1,27 @@
+---
+# Default variables for VPN
+
+# Local path relative to the playbook root
+vpn_keys_path: "configs/{{ vpn_server }}/wireguard"
+
+# VPN server real IP
+vpn_server: "{{ ansible_default_ipv4.address }}"
+
+# VPN subnet
+vpn_network: 10.20.0.0/24
+
+# Random port is generated once per host
+vpn_port: "{{ 52820 | random(seed=inventory_hostname) }}"
+
+# DNS servers to use
+vpn_dns_servers:
+- 176.103.130.130 # AdGuard server
+- 1.1.1.1 # CloudFlare server
+- "{{ vpn_network | ipmath(1) }}" # VPN tunnel
+
+# A list of client names
+vpn_clients:
+- "wg_{{ vpn_server }}"
+
+# Recreate all configs
+force: False

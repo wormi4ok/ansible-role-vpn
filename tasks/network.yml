@@ -1,0 +1,59 @@
+---
+- name: Enable IP forwarding
+  sysctl:
+    key: net.ipv4.ip_forward
+    val: "1"
+    sysctl_file: /etc/sysctl.d/wg.conf
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Allow Wireguard UDP connections
+  iptables:
+    chain: INPUT
+    protocol: udp
+    match: udp
+    destination_port: "{{ vpn_port }}"
+    ctstate: NEW
+    jump: ACCEPT
+  notify: Save iptables
+
+- name: Allow DNS conections
+  iptables:
+    chain: INPUT
+    source: "{{ vpn_network }}"
+    protocol: "{{ item }}"
+    match: "{{ item }}"
+    ctstate: NEW
+    destination_port: "53"
+    jump: ACCEPT
+  loop:
+    - tcp
+    - udp
+  notify: Restart iptables
+
+- name: Forward established connections
+  iptables:
+    chain: FORWARD
+    match: conntrack
+    ctstate: ESTABLISHED,RELATED
+    jump: ACCEPT
+  notify: Save iptables
+
+- name: Forward connections in the tunnel
+  iptables:
+    chain: FORWARD
+    match: conntrack
+    ctstate: NEW
+    in_interface: wg0
+    jump: ACCEPT
+  notify: Save iptables
+
+- name: Set up IPv4 NAT
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    source: "{{ vpn_network }}"
+    out_interface: "{{ ansible_default_ipv4.interface }}"
+    jump: MASQUERADE
+  notify: Save iptables

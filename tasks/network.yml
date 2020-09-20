@@ -30,7 +30,7 @@
   loop:
     - tcp
     - udp
-  notify: Restart iptables
+  notify: Save iptables
 
 - name: Forward established connections
   iptables:

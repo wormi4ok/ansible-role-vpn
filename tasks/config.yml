@@ -16,7 +16,7 @@
     dest: "{{ item }}"
     state: directory
     recurse: true
-    mode: 0660
+    mode: 0700
   loop:
   - "{{ vpn_keys_path }}/preshared"
   - "{{ vpn_keys_path }}/private"
@@ -56,7 +56,7 @@
       state: touch
       mode: 0644
     loop: "{{ [ vpn_clients , vpn_server ]| flatten(levels=1) }}"
-  when: wg_genkey.changed
+    when: wg_genkey.changed
 
 - name: Delete the preshared lock files
   file:
